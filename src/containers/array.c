@@ -371,8 +371,18 @@ void array_container_intersection_inplace(array_container_t *src_1,
         src_1->cardinality = intersect_skewed_uint16(
             src_2->array, card_2, src_1->array, card_1, src_1->array);
     } else {
+#ifdef CROARING_IS_X64
+        if (croaring_avx2()) {
+            src_1->cardinality = intersect_vector16(
+                src_1->array, card_1, src_2->array, card_2, src_1->array);
+        } else {
+            src_1->cardinality = intersect_uint16(
+                src_1->array, card_1, src_2->array, card_2, src_1->array);
+        }
+#else
         src_1->cardinality = intersect_uint16(
-            src_1->array, card_1, src_2->array, card_2, src_1->array);
+                        src_1->array, card_1, src_2->array, card_2, src_1->array);
+#endif       
     }
 }
 

@@ -380,6 +380,8 @@ int32_t intersect_vector16(const uint16_t *__restrict__ A, size_t s_a,
     if ((i_a < st_a) && (i_b < st_b)) {
         v_a = _mm_lddqu_si128((__m128i *)&A[i_a]);
         v_b = _mm_lddqu_si128((__m128i *)&B[i_b]);
+        uint16_t tmp[sizeof(__m128i) / sizeof(uint16_t) * 2] = {0};
+        size_t tmp_count = 0;
         while ((A[i_a] == 0) || (B[i_b] == 0)) {
             const __m128i res_v = _mm_cmpestrm(
                 v_b, vectorlength, v_a, vectorlength,
@@ -387,11 +389,15 @@ int32_t intersect_vector16(const uint16_t *__restrict__ A, size_t s_a,
             const int r = _mm_extract_epi32(res_v, 0);
             __m128i sm16 = _mm_loadu_si128((const __m128i *)shuffle_mask16 + r);
             __m128i p = _mm_shuffle_epi8(v_a, sm16);
-            _mm_storeu_si128((__m128i *)&C[count], p);  // can overflow
-            count += _mm_popcnt_u32(r);
+            _mm_storeu_si128((__m128i *)&tmp[tmp_count], p);  // can overflow
+            tmp_count += _mm_popcnt_u32(r);
             const uint16_t a_max = A[i_a + vectorlength - 1];
             const uint16_t b_max = B[i_b + vectorlength - 1];
             if (a_max <= b_max) {
+                _mm_storeu_si128((__m128i *)&C[count], *((__m128i *)&tmp));
+                _mm_storeu_si128((__m128i *)&tmp, _mm_setr_epi32(0, 0, 0, 0));
+                count += tmp_count;
+                tmp_count = 0;           
                 i_a += vectorlength;
                 if (i_a == st_a) break;
                 v_a = _mm_lddqu_si128((__m128i *)&A[i_a]);
@@ -402,7 +408,7 @@ int32_t intersect_vector16(const uint16_t *__restrict__ A, size_t s_a,
                 v_b = _mm_lddqu_si128((__m128i *)&B[i_b]);
             }
         }
-        if ((i_a < st_a) && (i_b < st_b))
+        if ((i_a < st_a) && (i_b < st_b)) {
             while (true) {
                 const __m128i res_v = _mm_cmpistrm(
                     v_b, v_a,
@@ -411,11 +417,15 @@ int32_t intersect_vector16(const uint16_t *__restrict__ A, size_t s_a,
                 __m128i sm16 =
                     _mm_loadu_si128((const __m128i *)shuffle_mask16 + r);
                 __m128i p = _mm_shuffle_epi8(v_a, sm16);
-                _mm_storeu_si128((__m128i *)&C[count], p);  // can overflow
-                count += _mm_popcnt_u32(r);
+                _mm_storeu_si128((__m128i *)&tmp[tmp_count], p);  // can overflow
+                tmp_count += _mm_popcnt_u32(r);
                 const uint16_t a_max = A[i_a + vectorlength - 1];
                 const uint16_t b_max = B[i_b + vectorlength - 1];
                 if (a_max <= b_max) {
+                    _mm_storeu_si128((__m128i *)&C[count], *((__m128i *)&tmp));
+                    _mm_storeu_si128((__m128i *)&tmp, _mm_setr_epi32(0, 0, 0, 0));
+                    count += tmp_count;
+                    tmp_count = 0;  
                     i_a += vectorlength;
                     if (i_a == st_a) break;
                     v_a = _mm_lddqu_si128((__m128i *)&A[i_a]);
@@ -426,6 +436,13 @@ int32_t intersect_vector16(const uint16_t *__restrict__ A, size_t s_a,
                     v_b = _mm_lddqu_si128((__m128i *)&B[i_b]);
                 }
             }
+        }
+        // tmp_count <= 8, so this does not affect efficiency so much
+        for (size_t i = 0; i < tmp_count; i++) {
+            C[count] = tmp[i];
+            count++;
+            i_a++;  // We can at least jump pass the first $tmp_count elements in v_a
+        }
     }
     // intersect the tail using scalar intersection
     while (i_a < s_a && i_b < s_b) {
