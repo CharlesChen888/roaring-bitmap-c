@@ -680,11 +680,10 @@ roaring_bitmap_t *roaring_bitmap_or_many(size_t number,
         return roaring_bitmap_copy(x[0]);
     }
     roaring_bitmap_t *answer =
-        roaring_bitmap_lazy_or(x[0], x[1], LAZY_OR_BITSET_CONVERSION);
+        roaring_bitmap_or(x[0], x[1]);
     for (size_t i = 2; i < number; i++) {
-        roaring_bitmap_lazy_or_inplace(answer, x[i], LAZY_OR_BITSET_CONVERSION);
+        roaring_bitmap_or_inplace(answer, x[i]);
     }
-    roaring_bitmap_repair_after_lazy(answer);
     return answer;
 }
 
@@ -699,11 +698,10 @@ roaring_bitmap_t *roaring_bitmap_xor_many(size_t number,
     if (number == 1) {
         return roaring_bitmap_copy(x[0]);
     }
-    roaring_bitmap_t *answer = roaring_bitmap_lazy_xor(x[0], x[1]);
+    roaring_bitmap_t *answer = roaring_bitmap_xor(x[0], x[1]);
     for (size_t i = 2; i < number; i++) {
-        roaring_bitmap_lazy_xor_inplace(answer, x[i]);
+        roaring_bitmap_xor_inplace(answer, x[i]);
     }
-    roaring_bitmap_repair_after_lazy(answer);
     return answer;
 }
 
